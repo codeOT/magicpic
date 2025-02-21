@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { clerkClient } from "@clerk/nextjs";
+import { clerkClient } from "@clerk/nextjs/server";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
@@ -59,19 +59,26 @@ export async function POST(req: Request) {
 
   // CREATE
   if (eventType === "user.created") {
-    const { id, email_addresses, image_url, first_name, last_name, username } = evt.data;
-
+    const { id, email_addresses, image_url, first_name, last_name, username } = evt.data as {
+      id: string;
+      email_addresses?: { email_address: string }[];
+      image_url?: string;
+      first_name?: string;
+      last_name?: string;
+      username?: string;
+    };
+  
     const user = {
       clerkId: id,
-      email: email_addresses[0].email_address,
-      username: username!,
-      firstName: first_name,
-      lastName: last_name,
-      photo: image_url,
+      email: email_addresses?.[0]?.email_address || "", // Fallback to empty string if undefined
+      username: username || `user_${id}`, // Fallback to generated username if undefined
+      firstName: first_name || "",
+      lastName: last_name || "",
+      photo: image_url || "",
     };
-
+  
     const newUser = await createUser(user);
-
+  
     // Set public metadata
     if (newUser) {
       await clerkClient.users.updateUserMetadata(id, {
@@ -80,25 +87,33 @@ export async function POST(req: Request) {
         },
       });
     }
-
+  
     return NextResponse.json({ message: "OK", user: newUser });
   }
+  
 
   // UPDATE
   if (eventType === "user.updated") {
-    const { id, image_url, first_name, last_name, username } = evt.data;
-
-    const user = {
-      firstName: first_name,
-      lastName: last_name,
-      username: username!,
-      photo: image_url,
+    const { id, image_url, first_name, last_name, username } = evt.data as {
+      id: string;
+      image_url?: string;
+      first_name?: string;
+      last_name?: string;
+      username?: string;
     };
-
+  
+    const user = {
+      firstName: first_name || "", // Fallback to empty string if undefined
+      lastName: last_name || "",
+      username: username || `user_${id}`, // Fallback to generated username if undefined
+      photo: image_url || "",
+    };
+  
     const updatedUser = await updateUser(id, user);
-
+  
     return NextResponse.json({ message: "OK", user: updatedUser });
   }
+  
 
   // DELETE
   if (eventType === "user.deleted") {
